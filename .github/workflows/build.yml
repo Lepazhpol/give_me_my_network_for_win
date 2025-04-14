@@ -26,10 +26,13 @@ jobs:
         run: |
           pyi-makespec --onefile --windowed --name give_me_my_network table_merger_step6.py
 
-      - name: Inject image file into .spec
+      - name: Inject image into .spec file
+        shell: pwsh
         run: |
-          echo. >> give_me_my_network.spec
-          powershell -Command \"(Get-Content give_me_my_network.spec) -replace 'datas=\[\]', 'datas=\[\(\"3e60b959a71738e81e5b5d6f6c5ec03fe9563ab14ba3fc71258be4c84b017d74.png\", \".\"\)\]' | Set-Content give_me_my_network.spec\"
+          $specPath = "give_me_my_network.spec"
+          $specContent = Get-Content $specPath
+          $updatedSpec = $specContent -replace "datas=\[\]", "datas=[\('3e60b959a71738e81e5b5d6f6c5ec03fe9563ab14ba3fc71258be4c84b017d74.png', '.'\)]"
+          Set-Content -Path $specPath -Value $updatedSpec
 
       - name: Build EXE from .spec
         run: pyinstaller give_me_my_network.spec
