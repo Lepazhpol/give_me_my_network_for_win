@@ -1,9 +1,15 @@
+# table_merger_full.py — финальный рабочий код с ленивцем и только grid
+
+import os
 import tkinter as tk
-from tkinter import filedialog, messagebox, Toplevel, Checkbutton, IntVar, Label, Frame, Entry
+from tkinter import filedialog, messagebox, Toplevel, Checkbutton, IntVar, Label, Frame, Entry, ttk, PhotoImage
+from PIL import Image, ImageTk
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from datetime import datetime
+
+SLOTH_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "3e60b959a71738e81e5b5d6f6c5ec03fe9563ab14ba3fc71258be4c84b017d74.png")
 
 YELLOW_FILL = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
 RED_FILL = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
@@ -13,11 +19,19 @@ selected_countries = []
 df1 = None
 df2 = None
 
-# (1) Вспомогательные функции
+def add_sloth_with_text(parent, row=0, column=0, columnspan=3):
+    sloth_img_raw = Image.open(SLOTH_IMAGE_PATH).resize((64, 64))
+    sloth_img = ImageTk.PhotoImage(sloth_img_raw, master=parent)
+    frame = Frame(parent)
+    frame.grid(row=row, column=column, columnspan=columnspan, pady=5)
+    Label(frame, image=sloth_img).pack(side="left", padx=(10, 5))
+    Label(frame, text="Ленивец неспешно пьёт кофе и всё обрабатывает…", font=("Arial", 10, "italic")).pack(side="left")
+    frame.image = sloth_img
 
 def get_timestamped_filename():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"output_{timestamp}.xlsx"
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    return os.path.join(desktop, f"output_{timestamp}.xlsx")
 
 def move_column_after(df, col_to_move, target_col):
     cols = list(df.columns)
@@ -36,9 +50,7 @@ def move_column_first(df, column_name):
         df = df[cols]
     return df
 
-# (2) Основная логика объединения
-
-def merge_tables_filtered():
+def merge_tables_filtered(progress_window=None):
     global df1, df2, selected_acquirers, selected_countries
 
     key_col_df1 = 'Код Е100 / E100ID'
@@ -104,17 +116,29 @@ def merge_tables_filtered():
                 ws.cell(row=row, column=4).fill = RED_FILL
 
     wb.save(output_file)
-    messagebox.showinfo("Успех", f"Файл '{output_file}' успешно создан!")
-
-# (3) Интерфейс выбора эквайеров и стран с поиском и Canvas
+    if progress_window:
+        progress_window.destroy()
+    messagebox.showinfo("Готово", f"Файл сохранён на рабочий стол: {os.path.basename(output_file)}")
+def show_progress_and_generate(top_window):
+    top_window.destroy()
+    progress = Toplevel()
+    progress.title("Ленивец работает...")
+    progress.geometry("400x200")
+    progress.resizable(False, False)
+    add_sloth_with_text(progress, row=0)
+    bar = ttk.Progressbar(progress, mode="indeterminate")
+    bar.grid(row=1, column=0, padx=30, pady=20, columnspan=3, sticky="ew")
+    bar.start(10)
+    progress.update()
+    progress.after(500, lambda: merge_tables_filtered(progress))
 
 def open_acquirer_country_window():
     global df1
-
     top = Toplevel()
     top.title("Выбор эквайеров и стран")
     top.grid_columnconfigure(0, weight=1)
     top.grid_columnconfigure(1, weight=1)
+    add_sloth_with_text(top, row=0)
 
     acquirers_all = sorted(df1['Эквайер / Acquirer'].dropna().unique())
     countries_all = sorted(df1['Страна / Country'].dropna().unique())
@@ -123,7 +147,7 @@ def open_acquirer_country_window():
     country_vars = {}
     country_checks = {}
 
-    def update_visibility(container, vars_dict, checks_dict, query):
+    def update_visibility(vars_dict, checks_dict, query):
         for name, chk in checks_dict.items():
             if query in name.lower():
                 chk.grid()
@@ -131,15 +155,15 @@ def open_acquirer_country_window():
                 chk.grid_remove()
 
     search_acq = Entry(top)
-    search_acq.grid(row=0, column=0, padx=10, pady=(10, 0), sticky='ew')
+    search_acq.grid(row=1, column=0, padx=10, pady=(10, 0), sticky='ew')
     search_country = Entry(top)
-    search_country.grid(row=0, column=1, padx=10, pady=(10, 0), sticky='ew')
+    search_country.grid(row=1, column=1, padx=10, pady=(10, 0), sticky='ew')
 
-    Label(top, text="Эквайеры", font=('Arial', 10, 'bold')).grid(row=1, column=0)
-    Label(top, text="Страны", font=('Arial', 10, 'bold')).grid(row=1, column=1)
+    Label(top, text="Эквайеры", font=('Arial', 10, 'bold')).grid(row=2, column=0)
+    Label(top, text="Страны", font=('Arial', 10, 'bold')).grid(row=2, column=1)
 
     frame_acq = Frame(top)
-    frame_acq.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+    frame_acq.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
     canvas_acq = tk.Canvas(frame_acq, height=300, width=250)
     scrollbar_acq = tk.Scrollbar(frame_acq, orient="vertical", command=canvas_acq.yview)
     scrollable_acq = Frame(canvas_acq)
@@ -156,7 +180,7 @@ def open_acquirer_country_window():
         acquirer_checks[val] = chk
 
     frame_country = Frame(top)
-    frame_country.grid(row=2, column=1, sticky="nsew", padx=10, pady=5)
+    frame_country.grid(row=3, column=1, sticky="nsew", padx=10, pady=5)
     canvas_country = tk.Canvas(frame_country, height=300, width=250)
     scrollbar_country = tk.Scrollbar(frame_country, orient="vertical", command=canvas_country.yview)
     scrollable_country = Frame(canvas_country)
@@ -172,16 +196,8 @@ def open_acquirer_country_window():
         country_vars[val] = var
         country_checks[val] = chk
 
-    def filter_acq_list(*args):
-        query = search_acq.get().lower()
-        update_visibility(scrollable_acq, acquirer_vars, acquirer_checks, query)
-
-    def filter_country_list(*args):
-        query = search_country.get().lower()
-        update_visibility(scrollable_country, country_vars, country_checks, query)
-
-    search_acq.bind("<KeyRelease>", filter_acq_list)
-    search_country.bind("<KeyRelease>", filter_country_list)
+    search_acq.bind("<KeyRelease>", lambda e: update_visibility(acquirer_vars, acquirer_checks, search_acq.get().lower()))
+    search_country.bind("<KeyRelease>", lambda e: update_visibility(country_vars, country_checks, search_country.get().lower()))
 
     def uncheck_all_acquirers():
         for var in acquirer_vars.values():
@@ -198,11 +214,10 @@ def open_acquirer_country_window():
         if not selected_acquirers or not selected_countries:
             messagebox.showwarning("Внимание", "Выберите хотя бы одного эквайера и одну страну.")
             return
-        top.destroy()
-        merge_tables_filtered()
+        show_progress_and_generate(top)
 
     btns = Frame(top)
-    btns.grid(row=3, column=0, columnspan=2, pady=10)
+    btns.grid(row=4, column=0, columnspan=2, pady=10)
     tk.Button(btns, text="Снять все эквайеры", command=uncheck_all_acquirers).pack(side="left", padx=5)
     tk.Button(btns, text="Снять все страны", command=uncheck_all_countries).pack(side="left", padx=5)
     tk.Button(btns, text="Генерировать", command=generate).pack(side="left", padx=10)
@@ -230,12 +245,11 @@ def select_file(entry):
         entry.delete(0, tk.END)
         entry.insert(0, path)
 
-# Главное окно GUI
+# --- Главное окно ---
 root = tk.Tk()
 root.title("Объединение таблиц по E100ID")
-
-frame_width = 780
-frame_height = 220
+frame_width = 820
+frame_height = 280
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 position_top = int(screen_height / 2 - frame_height / 2)
@@ -243,20 +257,20 @@ position_left = int(screen_width / 2 - frame_width / 2)
 root.geometry(f"{frame_width}x{frame_height}+{position_left}+{position_top}")
 root.minsize(frame_width, frame_height)
 
-tk.Label(root, text="Выгрузка из Supplier:").grid(row=0, column=0, sticky="e", padx=10, pady=10)
+add_sloth_with_text(root, row=0)
+
+tk.Label(root, text="Выгрузка из Supplier:").grid(row=1, column=0, sticky="e", padx=10, pady=10)
 entry1 = tk.Entry(root, width=50)
-entry1.grid(row=0, column=1, padx=5, pady=10)
-tk.Button(root, text="Выбрать...", command=lambda: select_file(entry1)).grid(row=0, column=2, padx=10, pady=10)
+entry1.grid(row=1, column=1, padx=5, pady=10)
+tk.Button(root, text="Выбрать...", command=lambda: select_file(entry1)).grid(row=1, column=2, padx=10, pady=10)
 
-tk.Label(root, text="Выгрузка из WebTM:").grid(row=1, column=0, sticky="e", padx=10, pady=10)
+tk.Label(root, text="Выгрузка из WebTM:").grid(row=2, column=0, sticky="e", padx=10, pady=10)
 entry2 = tk.Entry(root, width=50)
-entry2.grid(row=1, column=1, padx=5, pady=10)
-tk.Button(root, text="Выбрать...", command=lambda: select_file(entry2)).grid(row=1, column=2, padx=10, pady=10)
+entry2.grid(row=2, column=1, padx=5, pady=10)
+tk.Button(root, text="Выбрать...", command=lambda: select_file(entry2)).grid(row=2, column=2, padx=10, pady=10)
 
-tk.Label(root, text="За эту программу можете благодарить одного уставшего Пашку, который не дождался… 😄", fg="gray").grid(row=3, column=0, columnspan=3, pady=(5, 10))
+tk.Label(root, text="За эту программу можете благодарить одного уставшего Пашку, который не дождался… 😄", fg="gray").grid(row=4, column=0, columnspan=3, pady=(5, 10))
 
-tk.Button(root, text="Анализировать", command=analyze_files, height=2, width=20).grid(
-    row=2, column=1, pady=10
-)
+tk.Button(root, text="Анализировать", command=analyze_files, height=2, width=20).grid(row=3, column=1, pady=10)
 
 root.mainloop()
