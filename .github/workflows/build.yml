@@ -23,7 +23,7 @@ jobs:
           pip install pyinstaller pandas openpyxl
 
       - name: Build EXE
-        run: pyinstaller --onefile --windowed --name="give_me_my_network" table_merger_step6.py
+        run: pyinstaller --onefile --windowed --icon=sloth.ico --name="give_me_my_network" table_merger_step6.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
