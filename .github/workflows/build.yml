@@ -31,7 +31,7 @@ jobs:
         run: |
           $specPath = "give_me_my_network.spec"
           $specContent = Get-Content $specPath
-          $updatedSpec = $specContent -replace "datas=\[\]", "datas=[\('3e60b959a71738e81e5b5d6f6c5ec03fe9563ab14ba3fc71258be4c84b017d74.png', '.'\)]"
+          $updatedSpec = $specContent -replace "datas=\\[\\]", "datas=[('3e60b959a71738e81e5b5d6f6c5ec03fe9563ab14ba3fc71258be4c84b017d74.png', '.')]"
           Set-Content -Path $specPath -Value $updatedSpec
 
       - name: Build EXE from .spec
